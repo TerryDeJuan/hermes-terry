@@ -1026,6 +1026,8 @@ class APIServerAdapter(BasePlatformAdapter):
         tool_start_callback=None,
         tool_complete_callback=None,
         gateway_session_key: Optional[str] = None,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
     ) -> Any:
         """
         Create an AIAgent instance using the gateway's runtime config.
@@ -1083,6 +1085,8 @@ class APIServerAdapter(BasePlatformAdapter):
             fallback_model=fallback_model,
             reasoning_config=reasoning_config,
             gateway_session_key=gateway_session_key,
+            user_id=user_id,
+            user_name=user_name,
         )
         return agent
 
@@ -1565,6 +1569,17 @@ class APIServerAdapter(BasePlatformAdapter):
         gateway_session_key, key_err = self._parse_session_key_header(request)
         if key_err is not None:
             return key_err
+
+        req_user_id = request.headers.get("X-Hermes-User-Id", "").strip()
+        if not req_user_id:
+            _body_user = body.get("user")
+            if isinstance(_body_user, str):
+                req_user_id = _body_user.strip()
+        req_user_name = request.headers.get("X-Hermes-User-Name", "").strip()
+        if req_user_id and re.search(r'[\r\n\x00]', req_user_id):
+            req_user_id = ""
+        if req_user_name and re.search(r'[\r\n\x00]', req_user_name):
+            req_user_name = ""
         session_id = request.match_info["session_id"]
         _, err = self._get_existing_session_or_404(session_id)
         if err:
@@ -1942,6 +1957,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 tool_complete_callback=_on_tool_complete,
                 agent_ref=agent_ref,
                 gateway_session_key=gateway_session_key,
+                user_id=req_user_id or None,
+                user_name=req_user_name or None,
             ))
             # Ensure SSE drain loops can terminate without relying on polling
             # agent_task.done(), which can race with queue timeout checks.
@@ -1961,6 +1978,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 ephemeral_system_prompt=system_prompt,
                 session_id=session_id,
                 gateway_session_key=gateway_session_key,
+                user_id=req_user_id or None,
+                user_name=req_user_name or None,
             )
 
         idempotency_key = request.headers.get("Idempotency-Key")
@@ -3580,6 +3599,8 @@ class APIServerAdapter(BasePlatformAdapter):
         tool_complete_callback=None,
         agent_ref: Optional[list] = None,
         gateway_session_key: Optional[str] = None,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
     ) -> tuple:
         """
         Create an agent and run a conversation in a thread executor.
@@ -3602,6 +3623,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 chat_id=session_id or "",
                 session_key=gateway_session_key or session_id or "",
                 session_id=session_id or "",
+                user_id=user_id or "",
+                user_name=user_name or "",
             )
             try:
                 agent = self._create_agent(
@@ -3612,6 +3635,8 @@ class APIServerAdapter(BasePlatformAdapter):
                     tool_start_callback=tool_start_callback,
                     tool_complete_callback=tool_complete_callback,
                     gateway_session_key=gateway_session_key,
+                    user_id=user_id,
+                    user_name=user_name,
                 )
                 if agent_ref is not None:
                     agent_ref[0] = agent
