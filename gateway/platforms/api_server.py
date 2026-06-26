@@ -1570,16 +1570,6 @@ class APIServerAdapter(BasePlatformAdapter):
         if key_err is not None:
             return key_err
 
-        req_user_id = request.headers.get("X-Hermes-User-Id", "").strip()
-        if not req_user_id:
-            _body_user = body.get("user")
-            if isinstance(_body_user, str):
-                req_user_id = _body_user.strip()
-        req_user_name = request.headers.get("X-Hermes-User-Name", "").strip()
-        if req_user_id and re.search(r'[\r\n\x00]', req_user_id):
-            req_user_id = ""
-        if req_user_name and re.search(r'[\r\n\x00]', req_user_name):
-            req_user_name = ""
         session_id = request.match_info["session_id"]
         _, err = self._get_existing_session_or_404(session_id)
         if err:
@@ -1821,6 +1811,17 @@ class APIServerAdapter(BasePlatformAdapter):
         gateway_session_key, key_err = self._parse_session_key_header(request)
         if key_err is not None:
             return key_err
+
+        req_user_id = request.headers.get("X-Hermes-User-Id", "").strip()
+        if not req_user_id:
+            _body_user = body.get("user")
+            if isinstance(_body_user, str):
+                req_user_id = _body_user.strip()
+        req_user_name = request.headers.get("X-Hermes-User-Name", "").strip()
+        if req_user_id and re.search(r'[\r\n\x00]', req_user_id):
+            req_user_id = ""
+        if req_user_name and re.search(r'[\r\n\x00]', req_user_name):
+            req_user_name = ""
 
         # Allow caller to continue an existing session by passing X-Hermes-Session-Id.
         # When provided, history is loaded from state.db instead of from the request body.
